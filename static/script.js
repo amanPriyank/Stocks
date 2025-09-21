@@ -1,6 +1,5 @@
 let stockChart = null;
 
-// Utility functions
 function showLoading() {
     document.getElementById('loading').style.display = 'block';
     document.getElementById('error').style.display = 'none';
@@ -29,7 +28,6 @@ function showError(message, isWarning = false) {
     
     hideLoading();
     
-    // Auto-hide after 5 seconds
     setTimeout(() => {
         hideError();
     }, 5000);
@@ -73,7 +71,6 @@ function getChangeClass(change) {
     return change >= 0 ? 'positive' : 'negative';
 }
 
-// Single stock data fetching
 async function fetchStockData() {
     const symbol = document.getElementById('stockSymbol').value.trim().toUpperCase();
     const range = document.getElementById('rangeSelect').value;
@@ -84,7 +81,6 @@ async function fetchStockData() {
         return;
     }
     
-    // Disable button and show loader
     button.disabled = true;
     button.innerHTML = '<div class="button-spinner"></div> Loading...';
     showLoading();
@@ -105,7 +101,6 @@ async function fetchStockData() {
         displayStockInfo(data);
         createChart([data]);
         
-        // Add translate animation
         document.querySelector('.main-content').classList.add('translated');
         
     } catch (error) {
@@ -113,13 +108,11 @@ async function fetchStockData() {
         showError('Failed to fetch stock data. Please try again.');
     } finally {
         hideLoading();
-        // Re-enable button
         button.disabled = false;
         button.innerHTML = 'Get Stock Data';
     }
 }
 
-// Multiple stocks data fetching
 async function fetchMultipleStocks() {
     const symbolsInput = document.getElementById('multipleSymbols').value.trim();
     const range = document.getElementById('rangeSelect').value;
@@ -142,14 +135,12 @@ async function fetchMultipleStocks() {
         return;
     }
     
-    // Check for duplicate symbols
     const uniqueSymbols = [...new Set(symbols)];
     if (uniqueSymbols.length !== symbols.length) {
         showError('Please enter unique stock symbols. Duplicate symbols are not allowed.');
         return;
     }
     
-    // Disable button and show loader
     button.disabled = true;
     button.innerHTML = '<div class="button-spinner"></div> Loading...';
     showLoading();
@@ -179,7 +170,6 @@ async function fetchMultipleStocks() {
             return;
         }
         
-        // Show warning for invalid symbols if any
         if (data.invalid_symbols && data.invalid_symbols.length > 0) {
             showError(`Invalid symbols: ${data.invalid_symbols.join(', ')}. Showing data for valid symbols only.`, true);
         }
@@ -189,7 +179,6 @@ async function fetchMultipleStocks() {
         displayStocksSummaryHeader(data.stocks);
         createChart(data.stocks);
         
-        // Add translate animation
         document.querySelector('.main-content').classList.add('translated');
         
     } catch (error) {
@@ -197,13 +186,11 @@ async function fetchMultipleStocks() {
         showError('Failed to fetch stock data. Please try again.');
     } finally {
         hideLoading();
-        // Re-enable button
         button.disabled = false;
         button.innerHTML = 'Compare Stocks';
     }
 }
 
-// Display stock information
 function displayStockInfo(data) {
     const stockInfo = document.getElementById('stockInfo');
     const currentSymbol = document.getElementById('currentSymbol');
@@ -220,43 +207,35 @@ function displayStockInfo(data) {
     stockInfo.style.display = 'block';
 }
 
-// Hide stock information (for multiple stocks view)
 function hideStockInfo() {
     document.getElementById('stockInfo').style.display = 'none';
 }
 
-// Hide stocks summary (for single stock view)
 function hideStocksSummary() {
     document.getElementById('stocksSummary').style.display = 'none';
     document.getElementById('stocksSummaryHeader').style.display = 'none';
 }
 
-// Create or update chart
 function createChart(stocksData) {
     const ctx = document.getElementById('stockChart').getContext('2d');
     
-    // Destroy existing chart
     if (stockChart) {
         stockChart.destroy();
     }
     
-    // Prepare datasets
+    const colors = [
+        'rgba(102, 126, 234, 1)',
+        'rgba(255, 99, 132, 1)',
+        'rgba(54, 162, 235, 1)',
+        'rgba(255, 206, 86, 1)',
+        'rgba(75, 192, 192, 1)'
+    ];
+    
     const datasets = stocksData.map((stock, index) => {
-        const colors = [
-            'rgba(102, 126, 234, 1)',
-            'rgba(255, 99, 132, 1)',
-            'rgba(54, 162, 235, 1)',
-            'rgba(255, 206, 86, 1)',
-            'rgba(75, 192, 192, 1)'
-        ];
-        
         const color = colors[index % colors.length];
         
-        // Use simple symbol as label for chart
-        const label = stock.symbol;
-        
         return {
-            label: label,
+            label: stock.symbol,
             data: stock.prices,
             borderColor: color,
             backgroundColor: color.replace('1)', '0.1)'),
@@ -270,10 +249,8 @@ function createChart(stocksData) {
         };
     });
     
-    // Get labels from the first stock (assuming all have same dates)
     const labels = stocksData[0] ? stocksData[0].dates.map(formatDate) : [];
     
-    // Chart configuration
     const config = {
         type: 'line',
         data: {
@@ -361,61 +338,15 @@ function createChart(stocksData) {
         }
     };
     
-    // Create the chart
     stockChart = new Chart(ctx, config);
 }
 
-// Event listeners
-document.addEventListener('DOMContentLoaded', function() {
-    // Enter key support for single stock input
-    document.getElementById('stockSymbol').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            fetchStockData();
-        }
-    });
-    
-    // Enter key support for multiple stocks input
-    document.getElementById('multipleSymbols').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            fetchMultipleStocks();
-        }
-    });
-    
-    // Clear inputs when switching between single and multiple stock modes
-    document.getElementById('stockSymbol').addEventListener('input', function() {
-        if (this.value.trim()) {
-            document.getElementById('multipleSymbols').value = '';
-        }
-    });
-    
-    document.getElementById('multipleSymbols').addEventListener('input', function() {
-        if (this.value.trim()) {
-            document.getElementById('stockSymbol').value = '';
-        }
-    });
-    
-    // Update chart when range changes (if there's an existing chart)
-    document.getElementById('rangeSelect').addEventListener('change', function() {
-        const singleSymbol = document.getElementById('stockSymbol').value.trim();
-        const multipleSymbols = document.getElementById('multipleSymbols').value.trim();
-        
-        if (singleSymbol) {
-            fetchStockData();
-        } else if (multipleSymbols) {
-            fetchMultipleStocks();
-        }
-    });
-});
-
-// Display stocks summary table for multiple stocks comparison
 function displayStocksSummaryHeader(stocksData) {
     const headerDiv = document.getElementById('stocksSummaryHeader');
     const stocksGrid = document.getElementById('stocksGrid');
     
-    // Clear existing cards
     stocksGrid.innerHTML = '';
     
-    // Add cards for each stock
     stocksData.forEach(stock => {
         const card = document.createElement('div');
         card.className = 'stock-summary-card';
@@ -441,46 +372,43 @@ function displayStocksSummaryHeader(stocksData) {
     headerDiv.style.display = 'block';
 }
 
-function displayStocksSummary(stocksData) {
-    const summaryDiv = document.getElementById('stocksSummary');
-    const tableBody = document.getElementById('summaryTableBody');
-    
-    // Clear existing rows
-    tableBody.innerHTML = '';
-    
-    // Add rows for each stock
-    stocksData.forEach(stock => {
-        const row = document.createElement('tr');
-        
-        const symbolCell = document.createElement('td');
-        symbolCell.textContent = stock.symbol;
-        
-        const priceCell = document.createElement('td');
-        priceCell.textContent = formatPrice(stock.current_price);
-        
-        const changeCell = document.createElement('td');
-        const changeText = formatChange(stock.change, stock.percent_change);
-        changeCell.textContent = changeText;
-        changeCell.className = getChangeClass(stock.change);
-        
-        const percentCell = document.createElement('td');
-        const changeSymbol = stock.percent_change >= 0 ? '+' : '';
-        percentCell.textContent = `${changeSymbol}${stock.percent_change.toFixed(2)}%`;
-        percentCell.className = getChangeClass(stock.change);
-        
-        row.appendChild(symbolCell);
-        row.appendChild(priceCell);
-        row.appendChild(changeCell);
-        row.appendChild(percentCell);
-        
-        tableBody.appendChild(row);
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('stockSymbol').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            fetchStockData();
+        }
     });
     
-    summaryDiv.style.display = 'block';
-}
+    document.getElementById('multipleSymbols').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            fetchMultipleStocks();
+        }
+    });
+    
+    document.getElementById('stockSymbol').addEventListener('input', function() {
+        if (this.value.trim()) {
+            document.getElementById('multipleSymbols').value = '';
+        }
+    });
+    
+    document.getElementById('multipleSymbols').addEventListener('input', function() {
+        if (this.value.trim()) {
+            document.getElementById('stockSymbol').value = '';
+        }
+    });
+    
+    document.getElementById('rangeSelect').addEventListener('change', function() {
+        const singleSymbol = document.getElementById('stockSymbol').value.trim();
+        const multipleSymbols = document.getElementById('multipleSymbols').value.trim();
+        
+        if (singleSymbol) {
+            fetchStockData();
+        } else if (multipleSymbols) {
+            fetchMultipleStocks();
+        }
+    });
+});
 
-// Initialize with a default chart showing a sample
 window.addEventListener('load', function() {
-    // You can add initialization code here if needed
     console.log('MarketLens loaded successfully!');
 });

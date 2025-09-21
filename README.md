@@ -31,9 +31,10 @@ A modern web application for viewing and comparing stock prices using real-time 
 
 4. **Configure environment**
    - Create a `.env` file in the root directory
-   - Add your Alpha Vantage API key:
+   - Add your configuration:
      ```
      ALPHA_VANTAGE_API_KEY=your_api_key_here
+     PORT=5000
      ```
 
 5. **Run the application**

@@ -1,44 +1,29 @@
-"""
-MarketLens - Flask Backend
-A web application for viewing stock prices and comparing multiple stocks.
-Uses Alpha Vantage API for both historical and current price data.
-"""
-
 import os
 from datetime import datetime, timedelta
-
 from flask import Flask, request, jsonify, render_template
 import requests
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
 
-# Configuration
-ALPHA_VANTAGE_API_KEY = os.getenv('ALPHA_VANTAGE_API_KEY')
-ALPHA_VANTAGE_BASE_URL = os.getenv('ALPHA_VANTAGE_BASE_URL', 'https://www.alphavantage.co/query')
+API_KEY = os.getenv('ALPHA_VANTAGE_API_KEY')
+API_URL = os.getenv('ALPHA_VANTAGE_BASE_URL')
+PORT = int(os.getenv('PORT'))
 
-if not ALPHA_VANTAGE_API_KEY:
-    raise ValueError("ALPHA_VANTAGE_API_KEY not found in environment variables")
+if not API_KEY:
+    raise ValueError("Alpha Vantage API key not found")
 
 
 @app.route('/')
-def index():
-    """Serve the main application page."""
+def home():
     return render_template('index.html')
 
 
 @app.route('/api/stock_data', methods=['GET'])
 def get_stock_data():
-    """
-    Fetch stock data for a single symbol.
-    
-    Returns:
-        JSON response with stock price data including current price,
-        real historical data, and price changes.
-    """
+    # Fetch single stock data with price history
     symbol = request.args.get('symbol', '').upper().strip()
     range_type = request.args.get('range', '1M')
     
@@ -46,45 +31,34 @@ def get_stock_data():
         return jsonify({'error': 'Stock symbol is required'}), 400
     
     try:
-        # Get historical data from Alpha Vantage
-        historical_data = _fetch_historical_data(symbol, range_type)
-        if not historical_data:
-            return jsonify({'error': f'No data available for {symbol}. This could be due to API rate limits (25 calls/day for free tier) or invalid symbol.'}), 400
+        data = fetch_stock_data(symbol, range_type)
+        if not data:
+            return jsonify({'error': f'No data available for {symbol}. Check if symbol is valid or try again later.'}), 400
         
-        # Check if the response contains an error
-        if isinstance(historical_data, dict) and 'error' in historical_data:
-            if historical_data['error'] == 'rate_limit':
-                return jsonify({'error': historical_data['message']}), 429
-            elif historical_data['error'] == 'invalid_symbol':
-                return jsonify({'error': historical_data['message']}), 400
+        if isinstance(data, dict) and 'error' in data:
+            if data['error'] == 'rate_limit':
+                return jsonify({'error': data['message']}), 429
+            elif data['error'] == 'invalid_symbol':
+                return jsonify({'error': data['message']}), 400
         
         return jsonify({
             'symbol': symbol,
-            'dates': historical_data['dates'],
-            'prices': historical_data['prices'],
-            'volumes': historical_data['volumes'],
-            'current_price': historical_data['current_price'],
-            'change': historical_data['change'],
-            'percent_change': historical_data['percent_change'],
-            'high': historical_data['high'],
-            'low': historical_data['low'],
-            'open': historical_data['open']
+            'dates': data['dates'],
+            'prices': data['prices'],
+            'current_price': data['current_price'],
+            'change': data['change'],
+            'percent_change': data['percent_change']
         })
         
     except requests.RequestException:
         return jsonify({'error': 'Failed to fetch stock data'}), 500
     except Exception:
-        return jsonify({'error': 'Internal server error'}), 500
+        return jsonify({'error': 'Something went wrong'}), 500
 
 
 @app.route('/api/multiple_stocks', methods=['POST'])
 def get_multiple_stocks():
-    """
-    Fetch and compare data for multiple stock symbols.
-    
-    Returns:
-        JSON response with stock data for all valid symbols.
-    """
+    # Compare multiple stocks on a single chart
     data = request.get_json()
     symbols = data.get('symbols', [])
     range_type = data.get('range', '1M')
@@ -95,10 +69,9 @@ def get_multiple_stocks():
     if len(symbols) > 5:
         return jsonify({'error': 'Maximum 5 stocks can be compared'}), 400
     
-    # Check for duplicate symbols
     unique_symbols = list(set(symbols))
     if len(unique_symbols) != len(symbols):
-        return jsonify({'error': 'Please enter unique stock symbols. Duplicate symbols are not allowed.'}), 400
+        return jsonify({'error': 'Duplicate symbols are not allowed'}), 400
     
     stocks_data = []
     invalid_symbols = []
@@ -107,38 +80,33 @@ def get_multiple_stocks():
     for symbol in symbols:
         try:
             symbol = symbol.upper().strip()
+            stock_data = fetch_stock_data(symbol, range_type)
             
-            # Fetch data for each symbol
-            historical_data = _fetch_historical_data(symbol, range_type)
-            if not historical_data:
+            if not stock_data:
                 continue
             
-            # Check if the response contains an error
-            if isinstance(historical_data, dict) and 'error' in historical_data:
-                if historical_data['error'] == 'rate_limit':
+            if isinstance(stock_data, dict) and 'error' in stock_data:
+                if stock_data['error'] == 'rate_limit':
                     rate_limit_hit = True
-                    break  # Stop processing if rate limit is hit
-                elif historical_data['error'] == 'invalid_symbol':
+                    break
+                elif stock_data['error'] == 'invalid_symbol':
                     invalid_symbols.append(symbol)
                     continue
             
             stocks_data.append({
                 'symbol': symbol,
-                'dates': historical_data['dates'],
-                'prices': historical_data['prices'],
-                'current_price': historical_data['current_price'],
-                'change': historical_data['change'],
-                'percent_change': historical_data['percent_change']
+                'dates': stock_data['dates'],
+                'prices': stock_data['prices'],
+                'current_price': stock_data['current_price'],
+                'change': stock_data['change'],
+                'percent_change': stock_data['percent_change']
             })
             
         except Exception:
-            # Skip failed symbols and continue with others
             continue
     
-    # Prepare response
     response_data = {'stocks': stocks_data}
     
-    # Add error information if there are issues
     if rate_limit_hit:
         response_data['error'] = 'API rate limit exceeded. Please try again later.'
         return jsonify(response_data), 429
@@ -149,19 +117,9 @@ def get_multiple_stocks():
     return jsonify(response_data)
 
 
-def _fetch_historical_data(symbol, range_type):
-    """
-    Fetch real historical data from Alpha Vantage API.
-    
-    Args:
-        symbol (str): Stock symbol
-        range_type (str): Time range (1W, 1M, 6M)
-        
-    Returns:
-        dict: Historical data with dates, prices, and volumes
-    """
+def fetch_stock_data(symbol, range_type):
+    # Fetch historical data 
     try:
-        # Map range types to Alpha Vantage functions
         if range_type == '6M':
             function = 'TIME_SERIES_WEEKLY'
         else:
@@ -170,19 +128,18 @@ def _fetch_historical_data(symbol, range_type):
         params = {
             'function': function,
             'symbol': symbol,
-            'apikey': ALPHA_VANTAGE_API_KEY,
+            'apikey': API_KEY,
             'outputsize': 'compact',
             'datatype': 'json'
         }
         
-        response = requests.get(ALPHA_VANTAGE_BASE_URL, params=params, timeout=15)
+        response = requests.get(API_URL, params=params, timeout=15)
         
         if response.status_code != 200:
             return None
             
         data = response.json()
         
-        # Check for API errors and return specific error types
         if 'Error Message' in data:
             return {'error': 'invalid_symbol', 'message': f'Invalid symbol: {symbol}'}
         if 'Note' in data:
@@ -190,7 +147,6 @@ def _fetch_historical_data(symbol, range_type):
         if 'Information' in data and 'rate limit' in data['Information'].lower():
             return {'error': 'rate_limit', 'message': 'API rate limit exceeded. Please try again later.'}
         
-        # Extract time series data
         time_series_key = None
         for key in data.keys():
             if 'Time Series' in key:
@@ -202,28 +158,21 @@ def _fetch_historical_data(symbol, range_type):
         
         time_series = data[time_series_key]
         
-        # Process the data based on range type
         dates = []
         prices = []
-        volumes = []
         
-        # Sort dates in ascending order (oldest first)
         sorted_dates = sorted(time_series.keys())
         
-        # Filter data based on range type using actual date calculations
         today = datetime.now().date()
         
         if range_type == '1W':
-            # Last 7 calendar days
             cutoff_date = today - timedelta(days=7)
         elif range_type == '1M':
-            # Last 1 calendar month (same date last month)
             if today.month == 1:
                 cutoff_date = today.replace(year=today.year-1, month=12)
             else:
                 cutoff_date = today.replace(month=today.month-1)
         elif range_type == '6M':
-            # Last 6 calendar months (same date 6 months ago)
             months_back = 6
             year = today.year
             month = today.month - months_back
@@ -232,13 +181,11 @@ def _fetch_historical_data(symbol, range_type):
                 year -= 1
             cutoff_date = today.replace(year=year, month=month)
         else:
-            # Default to 1 month
             if today.month == 1:
                 cutoff_date = today.replace(year=today.year-1, month=12)
             else:
                 cutoff_date = today.replace(month=today.month-1)
 
-        # Filter dates to only include data from cutoff_date onwards
         filtered_dates = []
         for date_str in sorted_dates:
             try:
@@ -253,105 +200,39 @@ def _fetch_historical_data(symbol, range_type):
         if not sorted_dates:
             return None
         
-        # For daily and monthly data, fill in missing dates with previous day's data
-        if range_type in ['1W', '1M']:
-            # Create a complete date range and fill missing dates
-            start_date = datetime.strptime(sorted_dates[0], '%Y-%m-%d').date()
-            end_date = today
+        for date_str in sorted_dates:
+            date_data = time_series[date_str]
             
-            # Create dictionary of available data
-            available_data = {}
-            for date_str in sorted_dates:
-                available_data[date_str] = time_series[date_str]
-            
-            # Generate all dates in range and fill missing ones
-            current_date = start_date
-            last_price = None
-            last_volume = None
-            
-            while current_date <= end_date:
-                date_str = current_date.strftime('%Y-%m-%d')
+            try:
+                date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+                timestamp = int(date_obj.timestamp())
+                dates.append(timestamp)
                 
-                if date_str in available_data:
-                    # Use actual data if available
-                    date_data = available_data[date_str]
-                    last_price = float(date_data.get('4. close', 0))
-                    last_volume = int(date_data.get('5. volume', 0))
-                elif last_price is not None:
-                    # Use previous day's data if no data for this date
-                    date_data = {'4. close': last_price, '5. volume': last_volume}
-                else:
-                    # Skip if no data available yet
-                    current_date += timedelta(days=1)
-                    continue
+                close_price = float(date_data.get('4. close', 0))
+                prices.append(round(close_price, 2))
                 
-                try:
-                    date_obj = datetime.combine(current_date, datetime.min.time())
-                    timestamp = int(date_obj.timestamp())
-                    dates.append(timestamp)
-                    
-                    prices.append(last_price)
-                    volumes.append(last_volume)
-                    
-                except (ValueError, TypeError):
-                    pass
-                
-                current_date += timedelta(days=1)
-        else:
-            # For 6M data (weekly), use original logic without filling
-            for date_str in sorted_dates:
-                date_data = time_series[date_str]
-                
-                try:
-                    # Convert date string to timestamp
-                    date_obj = datetime.strptime(date_str, '%Y-%m-%d')
-                    timestamp = int(date_obj.timestamp())
-                    dates.append(timestamp)
-                    
-                    # Extract price and volume data
-                    close_price = float(date_data.get('4. close', 0))
-                    volume = int(date_data.get('5. volume', 0))
-                    
-                    prices.append(round(close_price, 2))
-                    volumes.append(volume)
-                    
-                except (ValueError, KeyError):
-                    pass
+            except (ValueError, KeyError):
+                pass
         
         if not dates:
             return None
         
-        # Get current price (latest close price)
         current_price = prices[-1] if prices else 0
         
-        # Calculate period change (from start of period to current)
         if len(prices) >= 2:
-            period_start_price = prices[0]  # First price in the period
+            period_start_price = prices[0]
             change = round(current_price - period_start_price, 2)
             percent_change = round((change / period_start_price) * 100, 2)
         else:
             change = 0
             percent_change = 0
         
-        # Get OHLC data from latest available entry
-        if sorted_dates:
-            latest_data = time_series[sorted_dates[-1]]
-            high = float(latest_data.get('2. high', current_price))
-            low = float(latest_data.get('3. low', current_price))
-            open_price = float(latest_data.get('1. open', current_price))
-        else:
-            high = low = open_price = current_price
-        
         return {
             'dates': dates,
             'prices': prices,
-            'volumes': volumes,
             'current_price': current_price,
             'change': change,
-            'percent_change': percent_change,
-            'high': high,
-            'low': low,
-            'open': open_price
+            'percent_change': percent_change
         }
         
     except Exception:
@@ -359,5 +240,4 @@ def _fetch_historical_data(symbol, range_type):
 
 
 if __name__ == '__main__':
-    app.run(debug=os.getenv('FLASK_DEBUG', 'False').lower() == 'true', 
-            host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=PORT)
