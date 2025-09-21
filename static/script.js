@@ -112,6 +112,13 @@ async function fetchMultipleStocks() {
         return;
     }
     
+    // Check for duplicate symbols
+    const uniqueSymbols = [...new Set(symbols)];
+    if (uniqueSymbols.length !== symbols.length) {
+        showError('Please enter unique stock symbols. Duplicate symbols are not allowed.');
+        return;
+    }
+    
     showLoading();
     hideError();
     

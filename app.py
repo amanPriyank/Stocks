@@ -88,6 +88,11 @@ def get_multiple_stocks():
     if len(symbols) > 5:
         return jsonify({'error': 'Maximum 5 stocks can be compared'}), 400
     
+    # Check for duplicate symbols
+    unique_symbols = list(set(symbols))
+    if len(unique_symbols) != len(symbols):
+        return jsonify({'error': 'Please enter unique stock symbols. Duplicate symbols are not allowed.'}), 400
+    
     stocks_data = []
     
     for symbol in symbols:
@@ -183,13 +188,26 @@ def _fetch_historical_data(symbol, range_type):
             # Last 7 calendar days
             cutoff_date = today - timedelta(days=7)
         elif range_type == '1M':
-            # Last 30 calendar days  
-            cutoff_date = today - timedelta(days=30)
+            # Last 1 calendar month (same date last month)
+            if today.month == 1:
+                cutoff_date = today.replace(year=today.year-1, month=12)
+            else:
+                cutoff_date = today.replace(month=today.month-1)
         elif range_type == '6M':
-            # Last 26 weeks (approximately 6 months)
-            cutoff_date = today - timedelta(weeks=26)
+            # Last 6 calendar months (same date 6 months ago)
+            months_back = 6
+            year = today.year
+            month = today.month - months_back
+            if month <= 0:
+                month += 12
+                year -= 1
+            cutoff_date = today.replace(year=year, month=month)
         else:
-            cutoff_date = today - timedelta(days=30)  # default to 1 month
+            # Default to 1 month
+            if today.month == 1:
+                cutoff_date = today.replace(year=today.year-1, month=12)
+            else:
+                cutoff_date = today.replace(month=today.month-1)
 
         # Filter dates to only include data from cutoff_date onwards
         filtered_dates = []
