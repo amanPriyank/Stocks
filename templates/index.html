@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stock Price Viewer</title>
+    <title>MarketLens</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>📈 Stock Price Viewer</h1>
+            <h1><span class="logo">📈</span> MarketLens</h1>
             <p>Enter a stock ticker to view recent price data</p>
             <div class="notice">
                 <p><strong>Note:</strong> All data is real-time from Alpha Vantage API - daily data for 1W/1M, weekly data for 6M.</p>

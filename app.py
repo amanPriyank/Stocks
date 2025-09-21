@@ -1,5 +1,5 @@
 """
-Stock Price Viewer - Flask Backend
+MarketLens - Flask Backend
 A web application for viewing stock prices and comparing multiple stocks.
 Uses Alpha Vantage API for both historical and current price data.
 """
@@ -51,6 +51,13 @@ def get_stock_data():
         if not historical_data:
             return jsonify({'error': f'No data available for {symbol}. This could be due to API rate limits (25 calls/day for free tier) or invalid symbol.'}), 400
         
+        # Check if the response contains an error
+        if isinstance(historical_data, dict) and 'error' in historical_data:
+            if historical_data['error'] == 'rate_limit':
+                return jsonify({'error': historical_data['message']}), 429
+            elif historical_data['error'] == 'invalid_symbol':
+                return jsonify({'error': historical_data['message']}), 400
+        
         return jsonify({
             'symbol': symbol,
             'dates': historical_data['dates'],
@@ -94,6 +101,8 @@ def get_multiple_stocks():
         return jsonify({'error': 'Please enter unique stock symbols. Duplicate symbols are not allowed.'}), 400
     
     stocks_data = []
+    invalid_symbols = []
+    rate_limit_hit = False
     
     for symbol in symbols:
         try:
@@ -103,6 +112,15 @@ def get_multiple_stocks():
             historical_data = _fetch_historical_data(symbol, range_type)
             if not historical_data:
                 continue
+            
+            # Check if the response contains an error
+            if isinstance(historical_data, dict) and 'error' in historical_data:
+                if historical_data['error'] == 'rate_limit':
+                    rate_limit_hit = True
+                    break  # Stop processing if rate limit is hit
+                elif historical_data['error'] == 'invalid_symbol':
+                    invalid_symbols.append(symbol)
+                    continue
             
             stocks_data.append({
                 'symbol': symbol,
@@ -117,7 +135,18 @@ def get_multiple_stocks():
             # Skip failed symbols and continue with others
             continue
     
-    return jsonify({'stocks': stocks_data})
+    # Prepare response
+    response_data = {'stocks': stocks_data}
+    
+    # Add error information if there are issues
+    if rate_limit_hit:
+        response_data['error'] = 'API rate limit exceeded. Please try again later.'
+        return jsonify(response_data), 429
+    elif invalid_symbols:
+        response_data['invalid_symbols'] = invalid_symbols
+        response_data['message'] = f'Invalid symbols: {", ".join(invalid_symbols)}'
+    
+    return jsonify(response_data)
 
 
 def _fetch_historical_data(symbol, range_type):
@@ -153,13 +182,13 @@ def _fetch_historical_data(symbol, range_type):
             
         data = response.json()
         
-        # Check for API errors
+        # Check for API errors and return specific error types
         if 'Error Message' in data:
-            return None
+            return {'error': 'invalid_symbol', 'message': f'Invalid symbol: {symbol}'}
         if 'Note' in data:
-            return None  # API limit exceeded
+            return {'error': 'rate_limit', 'message': 'API rate limit exceeded. Please try again later.'}
         if 'Information' in data and 'rate limit' in data['Information'].lower():
-            return None  # API rate limit exceeded
+            return {'error': 'rate_limit', 'message': 'API rate limit exceeded. Please try again later.'}
         
         # Extract time series data
         time_series_key = None

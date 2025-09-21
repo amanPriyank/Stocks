@@ -10,9 +10,23 @@ function hideLoading() {
     document.getElementById('loading').style.display = 'none';
 }
 
-function showError(message) {
-    document.getElementById('errorMessage').textContent = message;
-    document.getElementById('error').style.display = 'block';
+function showError(message, isWarning = false) {
+    const errorDiv = document.getElementById('error');
+    const errorMessage = document.getElementById('errorMessage');
+    
+    errorMessage.textContent = message;
+    errorDiv.style.display = 'block';
+    
+    if (isWarning) {
+        errorDiv.style.background = '#fff3cd';
+        errorDiv.style.color = '#856404';
+        errorDiv.style.border = '1px solid #ffeaa7';
+    } else {
+        errorDiv.style.background = '#f8d7da';
+        errorDiv.style.color = '#721c24';
+        errorDiv.style.border = '1px solid #f5c6cb';
+    }
+    
     hideLoading();
 }
 
@@ -58,12 +72,16 @@ function getChangeClass(change) {
 async function fetchStockData() {
     const symbol = document.getElementById('stockSymbol').value.trim().toUpperCase();
     const range = document.getElementById('rangeSelect').value;
+    const button = document.getElementById('getDataBtn');
     
     if (!symbol) {
         showError('Please enter a stock ticker symbol');
         return;
     }
     
+    // Disable button and show loader
+    button.disabled = true;
+    button.innerHTML = '<div class="button-spinner"></div> Loading...';
     showLoading();
     hideError();
     
@@ -82,11 +100,17 @@ async function fetchStockData() {
         displayStockInfo(data);
         createChart([data]);
         
+        // Add translate animation
+        document.querySelector('.container').classList.add('translated');
+        
     } catch (error) {
         console.error('Error fetching stock data:', error);
         showError('Failed to fetch stock data. Please try again.');
     } finally {
         hideLoading();
+        // Re-enable button
+        button.disabled = false;
+        button.innerHTML = 'Get Stock Data';
     }
 }
 
@@ -94,6 +118,7 @@ async function fetchStockData() {
 async function fetchMultipleStocks() {
     const symbolsInput = document.getElementById('multipleSymbols').value.trim();
     const range = document.getElementById('rangeSelect').value;
+    const button = document.getElementById('getMultipleBtn');
     
     if (!symbolsInput) {
         showError('Please enter stock ticker symbols (comma-separated)');
@@ -119,6 +144,9 @@ async function fetchMultipleStocks() {
         return;
     }
     
+    // Disable button and show loader
+    button.disabled = true;
+    button.innerHTML = '<div class="button-spinner"></div> Loading...';
     showLoading();
     hideError();
     
@@ -146,16 +174,27 @@ async function fetchMultipleStocks() {
             return;
         }
         
+        // Show warning for invalid symbols if any
+        if (data.invalid_symbols && data.invalid_symbols.length > 0) {
+            showError(`Invalid symbols: ${data.invalid_symbols.join(', ')}. Showing data for valid symbols only.`, true);
+        }
+        
         hideStockInfo();
         showChart();
         displayStocksSummaryHeader(data.stocks);
         createChart(data.stocks);
+        
+        // Add translate animation
+        document.querySelector('.container').classList.add('translated');
         
     } catch (error) {
         console.error('Error fetching multiple stocks data:', error);
         showError('Failed to fetch stock data. Please try again.');
     } finally {
         hideLoading();
+        // Re-enable button
+        button.disabled = false;
+        button.innerHTML = 'Compare Stocks';
     }
 }
 
@@ -438,5 +477,5 @@ function displayStocksSummary(stocksData) {
 // Initialize with a default chart showing a sample
 window.addEventListener('load', function() {
     // You can add initialization code here if needed
-    console.log('Stock Price Viewer loaded successfully!');
+    console.log('MarketLens loaded successfully!');
 });
