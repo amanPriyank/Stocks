@@ -28,6 +28,11 @@ function showError(message, isWarning = false) {
     }
     
     hideLoading();
+    
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+        hideError();
+    }, 5000);
 }
 
 function hideError() {
