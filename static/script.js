@@ -67,6 +67,7 @@ async function fetchStockData() {
             return;
         }
         
+        hideStocksSummary();
         displayStockInfo(data);
         createChart([data]);
         
@@ -129,6 +130,7 @@ async function fetchMultipleStocks() {
         
         hideStockInfo();
         createChart(data.stocks);
+        displayStocksSummary(data.stocks);
         
     } catch (error) {
         console.error('Error fetching multiple stocks data:', error);
@@ -160,6 +162,11 @@ function hideStockInfo() {
     document.getElementById('stockInfo').style.display = 'none';
 }
 
+// Hide stocks summary (for single stock view)
+function hideStocksSummary() {
+    document.getElementById('stocksSummary').style.display = 'none';
+}
+
 // Create or update chart
 function createChart(stocksData) {
     const ctx = document.getElementById('stockChart').getContext('2d');
@@ -181,8 +188,16 @@ function createChart(stocksData) {
         
         const color = colors[index % colors.length];
         
+        // Create label with current price and percentage change
+        let label = stock.symbol;
+        if (stock.current_price && stock.percent_change !== undefined) {
+            const changeSymbol = stock.percent_change >= 0 ? '+' : '';
+            const changeColor = stock.percent_change >= 0 ? '#00C851' : '#ff4444';
+            label = `${stock.symbol} ($${stock.current_price.toFixed(2)} ${changeSymbol}${stock.percent_change.toFixed(2)}%)`;
+        }
+        
         return {
-            label: stock.symbol,
+            label: label,
             data: stock.prices,
             borderColor: color,
             backgroundColor: color.replace('1)', '0.1)'),
@@ -332,6 +347,45 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+// Display stocks summary table for multiple stocks comparison
+function displayStocksSummary(stocksData) {
+    const summaryDiv = document.getElementById('stocksSummary');
+    const tableBody = document.getElementById('summaryTableBody');
+    
+    // Clear existing rows
+    tableBody.innerHTML = '';
+    
+    // Add rows for each stock
+    stocksData.forEach(stock => {
+        const row = document.createElement('tr');
+        
+        const symbolCell = document.createElement('td');
+        symbolCell.textContent = stock.symbol;
+        
+        const priceCell = document.createElement('td');
+        priceCell.textContent = formatPrice(stock.current_price);
+        
+        const changeCell = document.createElement('td');
+        const changeText = formatChange(stock.change, stock.percent_change);
+        changeCell.textContent = changeText;
+        changeCell.className = getChangeClass(stock.change);
+        
+        const percentCell = document.createElement('td');
+        const changeSymbol = stock.percent_change >= 0 ? '+' : '';
+        percentCell.textContent = `${changeSymbol}${stock.percent_change.toFixed(2)}%`;
+        percentCell.className = getChangeClass(stock.change);
+        
+        row.appendChild(symbolCell);
+        row.appendChild(priceCell);
+        row.appendChild(changeCell);
+        row.appendChild(percentCell);
+        
+        tableBody.appendChild(row);
+    });
+    
+    summaryDiv.style.display = 'block';
+}
 
 // Initialize with a default chart showing a sample
 window.addEventListener('load', function() {

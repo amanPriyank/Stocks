@@ -102,7 +102,10 @@ def get_multiple_stocks():
             stocks_data.append({
                 'symbol': symbol,
                 'dates': historical_data['dates'],
-                'prices': historical_data['prices']
+                'prices': historical_data['prices'],
+                'current_price': historical_data['current_price'],
+                'change': historical_data['change'],
+                'percent_change': historical_data['percent_change']
             })
             
         except Exception:
@@ -145,18 +148,12 @@ def _fetch_historical_data(symbol, range_type):
             
         data = response.json()
         
-        # Debug: Print the full API response to understand what's happening
-        print(f"Alpha Vantage API Response for {symbol}: {data}")
-        
-        # Check for API errors and return specific error messages
+        # Check for API errors
         if 'Error Message' in data:
-            print(f"Alpha Vantage Error for {symbol}: {data['Error Message']}")
             return None
         if 'Note' in data:
-            print(f"Alpha Vantage Note for {symbol}: {data['Note']}")
             return None  # API limit exceeded
         if 'Information' in data and 'rate limit' in data['Information'].lower():
-            print(f"Alpha Vantage Rate Limit for {symbol}: {data['Information']}")
             return None  # API rate limit exceeded
         
         # Extract time series data
@@ -209,24 +206,70 @@ def _fetch_historical_data(symbol, range_type):
         if not sorted_dates:
             return None
         
-        for date_str in sorted_dates:
-            date_data = time_series[date_str]
+        # For daily and monthly data, fill in missing dates with previous day's data
+        if range_type in ['1W', '1M']:
+            # Create a complete date range and fill missing dates
+            start_date = datetime.strptime(sorted_dates[0], '%Y-%m-%d').date()
+            end_date = today
             
-            try:
-                # Convert date string to timestamp
-                date_obj = datetime.strptime(date_str, '%Y-%m-%d')
-                timestamp = int(date_obj.timestamp())
-                dates.append(timestamp)
+            # Create dictionary of available data
+            available_data = {}
+            for date_str in sorted_dates:
+                available_data[date_str] = time_series[date_str]
+            
+            # Generate all dates in range and fill missing ones
+            current_date = start_date
+            last_price = None
+            last_volume = None
+            
+            while current_date <= end_date:
+                date_str = current_date.strftime('%Y-%m-%d')
                 
-                # Extract price and volume data
-                close_price = float(date_data.get('4. close', 0))
-                volume = int(date_data.get('5. volume', 0))
+                if date_str in available_data:
+                    # Use actual data if available
+                    date_data = available_data[date_str]
+                    last_price = float(date_data.get('4. close', 0))
+                    last_volume = int(date_data.get('5. volume', 0))
+                elif last_price is not None:
+                    # Use previous day's data if no data for this date
+                    date_data = {'4. close': last_price, '5. volume': last_volume}
+                else:
+                    # Skip if no data available yet
+                    current_date += timedelta(days=1)
+                    continue
                 
-                prices.append(round(close_price, 2))
-                volumes.append(volume)
+                try:
+                    date_obj = datetime.combine(current_date, datetime.min.time())
+                    timestamp = int(date_obj.timestamp())
+                    dates.append(timestamp)
+                    
+                    prices.append(last_price)
+                    volumes.append(last_volume)
+                    
+                except (ValueError, TypeError):
+                    pass
                 
-            except (ValueError, KeyError):
-                continue
+                current_date += timedelta(days=1)
+        else:
+            # For 6M data (weekly), use original logic without filling
+            for date_str in sorted_dates:
+                date_data = time_series[date_str]
+                
+                try:
+                    # Convert date string to timestamp
+                    date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+                    timestamp = int(date_obj.timestamp())
+                    dates.append(timestamp)
+                    
+                    # Extract price and volume data
+                    close_price = float(date_data.get('4. close', 0))
+                    volume = int(date_data.get('5. volume', 0))
+                    
+                    prices.append(round(close_price, 2))
+                    volumes.append(volume)
+                    
+                except (ValueError, KeyError):
+                    pass
         
         if not dates:
             return None
@@ -234,20 +277,23 @@ def _fetch_historical_data(symbol, range_type):
         # Get current price (latest close price)
         current_price = prices[-1] if prices else 0
         
-        # Calculate change from previous day/week
+        # Calculate period change (from start of period to current)
         if len(prices) >= 2:
-            previous_price = prices[-2]
-            change = round(current_price - previous_price, 2)
-            percent_change = round((change / previous_price) * 100, 2)
+            period_start_price = prices[0]  # First price in the period
+            change = round(current_price - period_start_price, 2)
+            percent_change = round((change / period_start_price) * 100, 2)
         else:
             change = 0
             percent_change = 0
         
-        # Get OHLC data from latest entry
-        latest_data = time_series[sorted_dates[-1]]
-        high = float(latest_data.get('2. high', current_price))
-        low = float(latest_data.get('3. low', current_price))
-        open_price = float(latest_data.get('1. open', current_price))
+        # Get OHLC data from latest available entry
+        if sorted_dates:
+            latest_data = time_series[sorted_dates[-1]]
+            high = float(latest_data.get('2. high', current_price))
+            low = float(latest_data.get('3. low', current_price))
+            open_price = float(latest_data.get('1. open', current_price))
+        else:
+            high = low = open_price = current_price
         
         return {
             'dates': dates,

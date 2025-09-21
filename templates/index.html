@@ -55,6 +55,22 @@
             <canvas id="stockChart"></canvas>
         </div>
 
+        <div class="stocks-summary" id="stocksSummary" style="display: none;">
+            <h3>Stock Comparison Summary</h3>
+            <table id="summaryTable">
+                <thead>
+                    <tr>
+                        <th>Symbol</th>
+                        <th>Current Price</th>
+                        <th>Period Change</th>
+                        <th>% Change</th>
+                    </tr>
+                </thead>
+                <tbody id="summaryTableBody">
+                </tbody>
+            </table>
+        </div>
+
         <div class="loading" id="loading" style="display: none;">
             <div class="spinner"></div>
             <p>Loading stock data...</p>
