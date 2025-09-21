@@ -20,6 +20,15 @@ function hideError() {
     document.getElementById('error').style.display = 'none';
 }
 
+function showChart() {
+    document.getElementById('chartContainer').style.display = 'block';
+}
+
+function hideChart() {
+    document.getElementById('chartContainer').style.display = 'none';
+    document.getElementById('stocksSummaryHeader').style.display = 'none';
+}
+
 function formatPrice(price) {
     return new Intl.NumberFormat('en-US', {
         style: 'currency',
@@ -68,6 +77,8 @@ async function fetchStockData() {
         }
         
         hideStocksSummary();
+        showChart();
+        document.getElementById('stocksSummaryHeader').style.display = 'none';
         displayStockInfo(data);
         createChart([data]);
         
@@ -129,8 +140,9 @@ async function fetchMultipleStocks() {
         }
         
         hideStockInfo();
+        showChart();
+        displayStocksSummaryHeader(data.stocks);
         createChart(data.stocks);
-        displayStocksSummary(data.stocks);
         
     } catch (error) {
         console.error('Error fetching multiple stocks data:', error);
@@ -165,6 +177,7 @@ function hideStockInfo() {
 // Hide stocks summary (for single stock view)
 function hideStocksSummary() {
     document.getElementById('stocksSummary').style.display = 'none';
+    document.getElementById('stocksSummaryHeader').style.display = 'none';
 }
 
 // Create or update chart
@@ -188,13 +201,8 @@ function createChart(stocksData) {
         
         const color = colors[index % colors.length];
         
-        // Create label with current price and percentage change
-        let label = stock.symbol;
-        if (stock.current_price && stock.percent_change !== undefined) {
-            const changeSymbol = stock.percent_change >= 0 ? '+' : '';
-            const changeColor = stock.percent_change >= 0 ? '#00C851' : '#ff4444';
-            label = `${stock.symbol} ($${stock.current_price.toFixed(2)} ${changeSymbol}${stock.percent_change.toFixed(2)}%)`;
-        }
+        // Use simple symbol as label for chart
+        const label = stock.symbol;
         
         return {
             label: label,
@@ -349,6 +357,39 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Display stocks summary table for multiple stocks comparison
+function displayStocksSummaryHeader(stocksData) {
+    const headerDiv = document.getElementById('stocksSummaryHeader');
+    const stocksGrid = document.getElementById('stocksGrid');
+    
+    // Clear existing cards
+    stocksGrid.innerHTML = '';
+    
+    // Add cards for each stock
+    stocksData.forEach(stock => {
+        const card = document.createElement('div');
+        card.className = 'stock-summary-card';
+        
+        const symbol = document.createElement('div');
+        symbol.className = 'stock-symbol';
+        symbol.textContent = stock.symbol;
+        
+        const price = document.createElement('div');
+        price.className = 'stock-price';
+        price.textContent = formatPrice(stock.current_price);
+        
+        const change = document.createElement('div');
+        change.className = `stock-change ${getChangeClass(stock.change)}`;
+        change.textContent = formatChange(stock.change, stock.percent_change);
+        
+        card.appendChild(symbol);
+        card.appendChild(price);
+        card.appendChild(change);
+        stocksGrid.appendChild(card);
+    });
+    
+    headerDiv.style.display = 'block';
+}
+
 function displayStocksSummary(stocksData) {
     const summaryDiv = document.getElementById('stocksSummary');
     const tableBody = document.getElementById('summaryTableBody');

@@ -49,7 +49,7 @@ def get_stock_data():
         # Get historical data from Alpha Vantage
         historical_data = _fetch_historical_data(symbol, range_type)
         if not historical_data:
-            return jsonify({'error': f'No data available for {symbol}. Check the server logs for detailed API response.'}), 400
+            return jsonify({'error': f'No data available for {symbol}. This could be due to API rate limits (25 calls/day for free tier) or invalid symbol.'}), 400
         
         return jsonify({
             'symbol': symbol,
@@ -183,14 +183,14 @@ def _fetch_historical_data(symbol, range_type):
             # Last 7 calendar days
             cutoff_date = today - timedelta(days=7)
         elif range_type == '1M':
-            # Last 30 calendar days
+            # Last 30 calendar days  
             cutoff_date = today - timedelta(days=30)
         elif range_type == '6M':
             # Last 26 weeks (approximately 6 months)
             cutoff_date = today - timedelta(weeks=26)
         else:
             cutoff_date = today - timedelta(days=30)  # default to 1 month
-        
+
         # Filter dates to only include data from cutoff_date onwards
         filtered_dates = []
         for date_str in sorted_dates:
@@ -200,7 +200,7 @@ def _fetch_historical_data(symbol, range_type):
                     filtered_dates.append(date_str)
             except ValueError:
                 continue
-        
+
         sorted_dates = filtered_dates
         
         if not sorted_dates:
