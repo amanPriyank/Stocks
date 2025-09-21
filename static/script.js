@@ -101,7 +101,7 @@ async function fetchStockData() {
         createChart([data]);
         
         // Add translate animation
-        document.querySelector('.container').classList.add('translated');
+        document.querySelector('.main-content').classList.add('translated');
         
     } catch (error) {
         console.error('Error fetching stock data:', error);
@@ -185,7 +185,7 @@ async function fetchMultipleStocks() {
         createChart(data.stocks);
         
         // Add translate animation
-        document.querySelector('.container').classList.add('translated');
+        document.querySelector('.main-content').classList.add('translated');
         
     } catch (error) {
         console.error('Error fetching multiple stocks data:', error);
