@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Price Viewer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📈 Stock Price Viewer</h1>
+            <p>Enter a stock ticker to view recent price data</p>
+            <div class="notice">
+                <p><strong>Note:</strong> All data is real-time from Alpha Vantage API - daily data for 1W/1M, weekly data for 6M.</p>
+            </div>
+        </header>
+
+        <div class="controls">
+            <div class="input-section">
+                <div class="stock-input">
+                    <input type="text" id="stockSymbol" placeholder="Enter stock ticker (e.g., AAPL)" maxlength="10">
+                    <button id="getDataBtn" onclick="fetchStockData()">Get Stock Data</button>
+                </div>
+                
+                <div class="range-selector">
+                    <label for="rangeSelect">Time Range:</label>
+                    <select id="rangeSelect">
+                        <option value="1W">1 Week</option>
+                        <option value="1M" selected>1 Month</option>
+                        <option value="6M">6 Months</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="multiple-stocks">
+                <div class="multi-input">
+                    <input type="text" id="multipleSymbols" placeholder="Enter multiple tickers (e.g., AAPL,GOOGL,MSFT)" maxlength="50">
+                    <button id="getMultipleBtn" onclick="fetchMultipleStocks()">Compare Stocks</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="stock-info" id="stockInfo" style="display: none;">
+            <div class="price-display">
+                <h2 id="currentSymbol"></h2>
+                <div class="price-data">
+                    <span class="current-price" id="currentPrice"></span>
+                    <span class="price-change" id="priceChange"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="stockChart"></canvas>
+        </div>
+
+        <div class="loading" id="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Loading stock data...</p>
+        </div>
+
+        <div class="error" id="error" style="display: none;">
+            <p id="errorMessage"></p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
