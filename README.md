@@ -8,7 +8,7 @@ A modern web application for viewing and comparing stock prices using real-time 
 - Multiple stock comparison on a single chart
 - Flexible time ranges: 1 week, 1 month, 6 months
 - Responsive design optimized for all devices
-- Professional error handling and user feedback
+- Professional error handling
 
 ## Quick Start
 
