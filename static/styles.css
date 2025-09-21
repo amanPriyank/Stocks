@@ -96,7 +96,6 @@ header p {
     margin-bottom: 25px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.1);
     width: 100%;
-    max-width: 600px;
 }
 
 .input-section {
@@ -210,7 +209,6 @@ select {
     box-shadow: 0 5px 20px rgba(0,0,0,0.1);
     text-align: center;
     width: 100%;
-    max-width: 600px;
 }
 
 .price-display h2 {
@@ -358,7 +356,6 @@ select {
     box-shadow: 0 5px 20px rgba(0,0,0,0.1);
     display: none;
     width: 100%;
-    max-width: 600px;
 }
 
 .stocks-summary-header h3 {
